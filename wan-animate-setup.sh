@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 source /venv/main/bin/activate
 
 WORKSPACE=${WORKSPACE:-/workspace}
@@ -54,6 +54,7 @@ DWPOSE_MODELS=(
 )
 
 SAM2_MODELS=(
+    # Кладем с именем, которое обычно ищут узлы SAM2
     "https://huggingface.co/Kijai/sam2-safetensors/resolve/main/sam2.1_hiera_base_plus.safetensors"
 )
 
@@ -99,9 +100,9 @@ function provisioning_get_files() {
     for url in "${files[@]}"; do
         echo "→ $url"
         local auth_header=""
-        if [[ -n "$HF_TOKEN" && "$url" =~ huggingface\.co ]]; then
+        if [[ -n "${HF_TOKEN:-}" && "$url" =~ huggingface\.co ]]; then
             auth_header="--header=Authorization: Bearer $HF_TOKEN"
-        elif [[ -n "$CIVITAI_TOKEN" && "$url" =~ civitai\.com ]]; then
+        elif [[ -n "${CIVITAI_TOKEN:-}" && "$url" =~ civitai\.com ]]; then
             auth_header="--header=Authorization: Bearer $CIVITAI_TOKEN"
         fi
 
@@ -115,8 +116,11 @@ echo "=== Встановлення Custom Nodes ==="
 provisioning_get_nodes
 
 echo ""
-echo "=== Завантаження моделей ==="
+echo "=== Додаткові runtime-залежності (для попереджень у логах) ==="
+pip install --no-cache-dir opencv-contrib-python onnxruntime-gpu || echo " [!] Не вдалося встановити opencv-contrib-python / onnxruntime-gpu"
 
+echo ""
+echo "=== Завантаження моделей ==="
 provisioning_get_files "${COMFYUI_DIR}/models/text_encoders" "${TEXT_ENCODERS[@]}"
 provisioning_get_files "${COMFYUI_DIR}/models/clip_vision" "${CLIP_VISION[@]}"
 provisioning_get_files "${COMFYUI_DIR}/models/vae" "${VAE_MODELS[@]}"
@@ -127,22 +131,16 @@ provisioning_get_files "${COMFYUI_DIR}/models/sam2" "${SAM2_MODELS[@]}"
 provisioning_get_files "${COMFYUI_DIR}/models/upscale_models" "${UPSCALER_MODELS[@]}"
 
 echo ""
-echo "=== Завантаження RIFE моделі ==="
-
-RIFE_DIR="${COMFYUI_DIR}/models/rife"
-mkdir -p "$RIFE_DIR"
-
-if [[ ! -f "${RIFE_DIR}/rife49.pth" ]]; then
-    echo "→ Завантаження rife49.pth..."
-    wget ${HF_TOKEN:+--header="Authorization: Bearer $HF_TOKEN"} --content-disposition --show-progress -e dotbytes=4M \
-        -O "${RIFE_DIR}/rife49.pth" \
-        "https://huggingface.co/MachineDelusions/RIFE/resolve/main/rife49.pth" \
-        || echo " [!] Помилка завантаження rife49.pth"
+echo "=== SAM2 alias filename fix ==="
+# Иногда workflow/node ожидает именно -fp16 имя:
+mkdir -p "${COMFYUI_DIR}/models/sam2"
+if [[ -f "${COMFYUI_DIR}/models/sam2/sam2.1_hiera_base_plus.safetensors" && ! -f "${COMFYUI_DIR}/models/sam2/sam2.1_hiera_base_plus-fp16.safetensors" ]]; then
+    cp -f "${COMFYUI_DIR}/models/sam2/sam2.1_hiera_base_plus.safetensors" \
+          "${COMFYUI_DIR}/models/sam2/sam2.1_hiera_base_plus-fp16.safetensors"
 fi
 
 echo ""
 echo "=== Завантаження та перейменування LoRA моделей ==="
-
 LORAS_DIR="${COMFYUI_DIR}/models/loras"
 mkdir -p "$LORAS_DIR"
 
@@ -168,19 +166,44 @@ fi
 if [[ ! -f "${LORAS_DIR}/wan2.2_animate_14B_relight_lora_bf16.safetensors" ]]; then
     echo "→ Завантаження wan2.2_animate_14B_relight_lora_bf16.safetensors..."
     wget ${HF_TOKEN:+--header="Authorization: Bearer $HF_TOKEN"} --content-disposition --show-progress -e dotbytes=4M \
-        -P "${LORAS_DIR}" \
+        -O "${LORAS_DIR}/wan2.2_animate_14B_relight_lora_bf16.safetensors" \
         "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/loras/wan2.2_animate_14B_relight_lora_bf16.safetensors" \
         || echo " [!] Помилка завантаження relight lora"
 fi
 
 # Upscaler
 UPSCALE_DIR="${COMFYUI_DIR}/models/upscale_models"
+mkdir -p "$UPSCALE_DIR"
 if [[ ! -f "${UPSCALE_DIR}/1xSkinContrast-SuperUltraCompact.pth" ]]; then
     echo "→ Завантаження 1xSkinContrast-SuperUltraCompact.pth..."
     wget ${HF_TOKEN:+--header="Authorization: Bearer $HF_TOKEN"} --content-disposition --show-progress -e dotbytes=4M \
         -O "${UPSCALE_DIR}/1xSkinContrast-SuperUltraCompact.pth" \
         "https://huggingface.co/risunobushi/1xSkinContrast/resolve/main/1xSkinContrast-SuperUltraCompact.pth" \
         || echo " [!] Помилка завантаження 1xSkinContrast"
+fi
+
+echo ""
+echo "=== RIFE fix (критично для твоей ошибки) ==="
+# 1) Храним в models/rife
+RIFE_MODELS_DIR="${COMFYUI_DIR}/models/rife"
+# 2) Дублируем туда, где ComfyUI-Frame-Interpolation реально ищет файл
+RIFE_VFI_DIR="${COMFYUI_DIR}/custom_nodes/ComfyUI-Frame-Interpolation/ckpts/rife"
+
+mkdir -p "$RIFE_MODELS_DIR" "$RIFE_VFI_DIR"
+
+if [[ ! -f "${RIFE_MODELS_DIR}/rife49.pth" ]]; then
+    echo "→ Завантаження rife49.pth у models/rife..."
+    wget ${HF_TOKEN:+--header="Authorization: Bearer $HF_TOKEN"} --content-disposition --show-progress -e dotbytes=4M \
+        -O "${RIFE_MODELS_DIR}/rife49.pth" \
+        "https://huggingface.co/MachineDelusions/RIFE/resolve/main/rife49.pth" \
+        || echo " [!] Помилка завантаження rife49.pth"
+fi
+
+if [[ -f "${RIFE_MODELS_DIR}/rife49.pth" ]]; then
+    cp -f "${RIFE_MODELS_DIR}/rife49.pth" "${RIFE_VFI_DIR}/rife49.pth"
+    echo "✓ rife49.pth скопійовано у ${RIFE_VFI_DIR}"
+else
+    echo " [!] rife49.pth не знайдено в ${RIFE_MODELS_DIR}"
 fi
 
 echo ""
@@ -192,4 +215,4 @@ echo "  - Sadie01_LowNoise.safetensors"
 echo "  - Sydney01_LowNoise.safetensors"
 echo "Помістіть їх у: ${COMFYUI_DIR}/models/loras/"
 echo ""
-echo "Провізіонінг завершено. ComfyUI запуститься автоматично."
+echo "Провізіонінг завершено. ComfyUI запуститься автоматично платформою."
