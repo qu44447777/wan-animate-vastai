@@ -2,217 +2,239 @@
 set -euo pipefail
 source /venv/main/bin/activate
 
-WORKSPACE=${WORKSPACE:-/workspace}
+WORKSPACE="${WORKSPACE:-/workspace}"
 COMFYUI_DIR="${WORKSPACE}/ComfyUI"
 
-echo "=== Wan Animate God Mode V3 Setup ==="
+echo "=== Wan Animate God Mode V3 provisioning v2 ==="
 
+# -----------------------------
+# Custom nodes
+# -----------------------------
 NODES=(
-    "https://github.com/kijai/ComfyUI-WanVideoWrapper"
-    "https://github.com/kijai/ComfyUI-WanAnimatePreprocess"
-    "https://github.com/chflame163/ComfyUI_LayerStyle"
-    "https://github.com/yolain/ComfyUI-Easy-Use"
-    "https://github.com/kijai/ComfyUI-KJNodes"
-    "https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite"
-    "https://github.com/kijai/ComfyUI-segment-anything-2"
-    "https://github.com/cubiq/ComfyUI_essentials"
-    "https://github.com/fq393/ComfyUI-ZMG-Nodes"
-    "https://github.com/rgthree/rgthree-comfy"
-    "https://github.com/Fannovel16/comfyui_controlnet_aux"
-    "https://github.com/ltdrdata/ComfyUI-Impact-Pack"
-    "https://github.com/Fannovel16/ComfyUI-Frame-Interpolation"
-    "https://github.com/ClownsharkBatwing/RES4LYF"
+  "https://github.com/kijai/ComfyUI-WanVideoWrapper"
+  "https://github.com/kijai/ComfyUI-WanAnimatePreprocess"
+  "https://github.com/chflame163/ComfyUI_LayerStyle"
+  "https://github.com/yolain/ComfyUI-Easy-Use"
+  "https://github.com/kijai/ComfyUI-KJNodes"
+  "https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite"
+  "https://github.com/kijai/ComfyUI-segment-anything-2"
+  "https://github.com/cubiq/ComfyUI_essentials"
+  "https://github.com/fq393/ComfyUI-ZMG-Nodes"
+  "https://github.com/rgthree/rgthree-comfy"
+  "https://github.com/Fannovel16/comfyui_controlnet_aux"
+  "https://github.com/ltdrdata/ComfyUI-Impact-Pack"
+  "https://github.com/Fannovel16/ComfyUI-Frame-Interpolation"
+  "https://github.com/ClownsharkBatwing/RES4LYF"
 )
 
-TEXT_ENCODERS=(
-    "https://huggingface.co/f5aiteam/CLIP/resolve/main/umt5_xxl_fp8_e4m3fn_scaled.safetensors"
-)
+# -----------------------------
+# Helpers
+# -----------------------------
+download_to() {
+  # download_to "url" "output_path"
+  local url="$1"
+  local out="$2"
+  mkdir -p "$(dirname "$out")"
 
-CLIP_VISION=(
-    "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/clip_vision/clip_vision_h.safetensors"
-)
+  local auth=()
+  if [[ -n "${HF_TOKEN:-}" && "$url" == *"huggingface.co"* ]]; then
+    auth+=(--header="Authorization: Bearer ${HF_TOKEN}")
+  elif [[ -n "${CIVITAI_TOKEN:-}" && "$url" == *"civitai.com"* ]]; then
+    auth+=(--header="Authorization: Bearer ${CIVITAI_TOKEN}")
+  fi
 
-VAE_MODELS=(
-    "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/vae/wan_2.1_vae.safetensors"
-)
+  if [[ -s "$out" ]]; then
+    echo "✓ exists: $out"
+    return 0
+  fi
 
-DIFFUSION_MODELS=(
-    "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/diffusion_models/wan2.2_t2v_low_noise_14B_fp16.safetensors"
-    "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/diffusion_models/wan2.2_animate_14B_bf16.safetensors"
-)
+  echo "→ download: $url"
+  wget "${auth[@]}" --show-progress -e dotbytes=4M -O "$out" "$url"
 
-DETECTION_MODELS=(
-    "https://huggingface.co/Wan-AI/Wan2.2-Animate-14B/resolve/main/process_checkpoint/det/yolov10m.onnx"
-    "https://huggingface.co/yzd-v/DWPose/resolve/main/yolox_l.onnx"
-    "https://huggingface.co/Kijai/vitpose_comfy/resolve/main/onnx/vitpose_h_wholebody_model.onnx"
-    "https://huggingface.co/Kijai/vitpose_comfy/resolve/main/onnx/vitpose_h_wholebody_data.bin"
-)
-
-DWPOSE_MODELS=(
-    "https://huggingface.co/yzd-v/DWPose/resolve/main/dw-ll_ucoco_384.onnx"
-    "https://huggingface.co/yzd-v/DWPose/resolve/main/dw-ll_ucoco_384_bs5.torchscript.pt"
-)
-
-SAM2_MODELS=(
-    # Кладем с именем, которое обычно ищут узлы SAM2
-    "https://huggingface.co/Kijai/sam2-safetensors/resolve/main/sam2.1_hiera_base_plus.safetensors"
-)
-
-UPSCALER_MODELS=(
-    "https://huggingface.co/Kim2091/UltraSharp/resolve/main/4x-UltraSharp.pth"
-)
-
-function provisioning_get_nodes() {
-    mkdir -p "${COMFYUI_DIR}/custom_nodes"
-    cd "${COMFYUI_DIR}/custom_nodes"
-
-    for repo in "${NODES[@]}"; do
-        dir="${repo##*/}"
-        dir="${dir%.git}"
-        path="./${dir}"
-
-        if [[ -d "$path" ]]; then
-            echo "Оновлення: $dir"
-            (cd "$path" && git pull --ff-only 2>/dev/null || { git fetch && git reset --hard origin/main; })
-        else
-            echo "Клонування: $dir"
-            git clone "$repo" "$path" --recursive || echo " [!] Помилка клонування: $repo"
-        fi
-
-        requirements="${path}/requirements.txt"
-        if [[ -f "$requirements" ]]; then
-            echo "Встановлення залежностей для $dir..."
-            pip install --no-cache-dir -r "$requirements" || echo " [!] Помилка встановлення залежностей для $dir"
-        fi
-    done
+  if [[ ! -s "$out" ]]; then
+    echo " [!] download failed or empty file: $out"
+    return 1
+  fi
 }
 
-function provisioning_get_files() {
-    if [[ $# -lt 2 ]]; then return; fi
-    local dir="$1"
-    shift
-    local files=("$@")
-
-    mkdir -p "$dir"
-    echo ""
-    echo "Завантаження ${#files[@]} файл(ів) → $dir..."
-
-    for url in "${files[@]}"; do
-        echo "→ $url"
-        local auth_header=""
-        if [[ -n "${HF_TOKEN:-}" && "$url" =~ huggingface\.co ]]; then
-            auth_header="--header=Authorization: Bearer $HF_TOKEN"
-        elif [[ -n "${CIVITAI_TOKEN:-}" && "$url" =~ civitai\.com ]]; then
-            auth_header="--header=Authorization: Bearer $CIVITAI_TOKEN"
-        fi
-
-        wget $auth_header -nc --content-disposition --show-progress -e dotbytes=4M -P "$dir" "$url" || echo " [!] Помилка завантаження: $url"
-        echo ""
-    done
+check_required_file() {
+  local f="$1"
+  if [[ ! -s "$f" ]]; then
+    echo " [!] MISSING required file: $f"
+    return 1
+  fi
+  echo "✓ required: $f"
 }
 
-echo ""
-echo "=== Встановлення Custom Nodes ==="
-provisioning_get_nodes
+# -----------------------------
+# Install / update custom nodes
+# -----------------------------
+mkdir -p "${COMFYUI_DIR}/custom_nodes"
+cd "${COMFYUI_DIR}/custom_nodes"
 
-echo ""
-echo "=== Додаткові runtime-залежності (для попереджень у логах) ==="
-pip install --no-cache-dir opencv-contrib-python onnxruntime-gpu || echo " [!] Не вдалося встановити opencv-contrib-python / onnxruntime-gpu"
+for repo in "${NODES[@]}"; do
+  dir="${repo##*/}"
+  dir="${dir%.git}"
+  path="./${dir}"
 
-echo ""
-echo "=== Завантаження моделей ==="
-provisioning_get_files "${COMFYUI_DIR}/models/text_encoders" "${TEXT_ENCODERS[@]}"
-provisioning_get_files "${COMFYUI_DIR}/models/clip_vision" "${CLIP_VISION[@]}"
-provisioning_get_files "${COMFYUI_DIR}/models/vae" "${VAE_MODELS[@]}"
-provisioning_get_files "${COMFYUI_DIR}/models/diffusion_models" "${DIFFUSION_MODELS[@]}"
-provisioning_get_files "${COMFYUI_DIR}/models/detection" "${DETECTION_MODELS[@]}"
-provisioning_get_files "${COMFYUI_DIR}/models/dwpose" "${DWPOSE_MODELS[@]}"
-provisioning_get_files "${COMFYUI_DIR}/models/sam2" "${SAM2_MODELS[@]}"
-provisioning_get_files "${COMFYUI_DIR}/models/upscale_models" "${UPSCALER_MODELS[@]}"
+  if [[ -d "$path/.git" ]]; then
+    echo "Updating: $dir"
+    (cd "$path" && git pull --ff-only || { git fetch --all && git reset --hard origin/main; })
+  else
+    echo "Cloning: $dir"
+    git clone --recursive "$repo" "$path"
+  fi
 
-echo ""
-echo "=== SAM2 alias filename fix ==="
-# Иногда workflow/node ожидает именно -fp16 имя:
-mkdir -p "${COMFYUI_DIR}/models/sam2"
-if [[ -f "${COMFYUI_DIR}/models/sam2/sam2.1_hiera_base_plus.safetensors" && ! -f "${COMFYUI_DIR}/models/sam2/sam2.1_hiera_base_plus-fp16.safetensors" ]]; then
-    cp -f "${COMFYUI_DIR}/models/sam2/sam2.1_hiera_base_plus.safetensors" \
-          "${COMFYUI_DIR}/models/sam2/sam2.1_hiera_base_plus-fp16.safetensors"
+  if [[ -f "$path/requirements.txt" ]]; then
+    echo "Installing requirements for: $dir"
+    pip install --no-cache-dir -r "$path/requirements.txt" || echo " [!] requirements failed for $dir"
+  fi
+done
+
+# Extra runtime deps to reduce warnings/fallbacks
+pip install --no-cache-dir opencv-contrib-python onnxruntime-gpu || true
+
+# -----------------------------
+# Download models (exact names)
+# -----------------------------
+echo "=== Downloading models ==="
+
+# text encoder
+download_to \
+  "https://huggingface.co/f5aiteam/CLIP/resolve/main/umt5_xxl_fp8_e4m3fn_scaled.safetensors" \
+  "${COMFYUI_DIR}/models/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors"
+
+# clip vision
+download_to \
+  "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/clip_vision/clip_vision_h.safetensors" \
+  "${COMFYUI_DIR}/models/clip_vision/clip_vision_h.safetensors"
+
+# vae
+download_to \
+  "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/vae/wan_2.1_vae.safetensors" \
+  "${COMFYUI_DIR}/models/vae/wan_2.1_vae.safetensors"
+
+# diffusion models
+download_to \
+  "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/diffusion_models/wan2.2_t2v_low_noise_14B_fp16.safetensors" \
+  "${COMFYUI_DIR}/models/diffusion_models/wan2.2_t2v_low_noise_14B_fp16.safetensors"
+
+download_to \
+  "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/diffusion_models/wan2.2_animate_14B_bf16.safetensors" \
+  "${COMFYUI_DIR}/models/diffusion_models/wan2.2_animate_14B_bf16.safetensors"
+
+# loras
+download_to \
+  "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/Lightx2v/lightx2v_I2V_14B_480p_cfg_step_distill_rank256_bf16.safetensors" \
+  "${COMFYUI_DIR}/models/loras/i2v_lightx2v_low_noise_model.safetensors"
+
+download_to \
+  "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/Lightx2v/lightx2v_T2V_14B_cfg_step_distill_v2_lora_rank256_bf16.safetensors" \
+  "${COMFYUI_DIR}/models/loras/t2v_lightx2v_low_noise_model.safetensors"
+
+download_to \
+  "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/loras/wan2.2_animate_14B_relight_lora_bf16.safetensors" \
+  "${COMFYUI_DIR}/models/loras/wan2.2_animate_14B_relight_lora_bf16.safetensors"
+
+# preprocess detection / dwpose
+download_to \
+  "https://huggingface.co/Wan-AI/Wan2.2-Animate-14B/resolve/main/process_checkpoint/det/yolov10m.onnx" \
+  "${COMFYUI_DIR}/models/detection/yolov10m.onnx"
+
+download_to \
+  "https://huggingface.co/yzd-v/DWPose/resolve/main/yolox_l.onnx" \
+  "${COMFYUI_DIR}/models/detection/yolox_l.onnx"
+
+download_to \
+  "https://huggingface.co/Kijai/vitpose_comfy/resolve/main/onnx/vitpose_h_wholebody_model.onnx" \
+  "${COMFYUI_DIR}/models/detection/vitpose_h_wholebody_model.onnx"
+
+download_to \
+  "https://huggingface.co/Kijai/vitpose_comfy/resolve/main/onnx/vitpose_h_wholebody_data.bin" \
+  "${COMFYUI_DIR}/models/detection/vitpose_h_wholebody_data.bin"
+
+download_to \
+  "https://huggingface.co/yzd-v/DWPose/resolve/main/dw-ll_ucoco_384.onnx" \
+  "${COMFYUI_DIR}/models/dwpose/dw-ll_ucoco_384.onnx"
+
+download_to \
+  "https://huggingface.co/yzd-v/DWPose/resolve/main/dw-ll_ucoco_384_bs5.torchscript.pt" \
+  "${COMFYUI_DIR}/models/dwpose/dw-ll_ucoco_384_bs5.torchscript.pt"
+
+# SAM2
+download_to \
+  "https://huggingface.co/Kijai/sam2-safetensors/resolve/main/sam2.1_hiera_base_plus.safetensors" \
+  "${COMFYUI_DIR}/models/sam2/sam2.1_hiera_base_plus.safetensors"
+
+# optional alias (some nodes ask -fp16 filename)
+if [[ -s "${COMFYUI_DIR}/models/sam2/sam2.1_hiera_base_plus.safetensors" ]]; then
+  cp -f \
+    "${COMFYUI_DIR}/models/sam2/sam2.1_hiera_base_plus.safetensors" \
+    "${COMFYUI_DIR}/models/sam2/sam2.1_hiera_base_plus-fp16.safetensors"
+fi
+
+# upscalers
+download_to \
+  "https://huggingface.co/Kim2091/UltraSharp/resolve/main/4x-UltraSharp.pth" \
+  "${COMFYUI_DIR}/models/upscale_models/4x-UltraSharp.pth"
+
+download_to \
+  "https://huggingface.co/risunobushi/1xSkinContrast/resolve/main/1xSkinContrast-SuperUltraCompact.pth" \
+  "${COMFYUI_DIR}/models/upscale_models/1xSkinContrast-SuperUltraCompact.pth"
+
+# -----------------------------
+# RIFE (critical fix)
+# -----------------------------
+echo "=== RIFE fix ==="
+download_to \
+  "https://huggingface.co/MachineDelusions/RIFE/resolve/main/rife49.pth" \
+  "${COMFYUI_DIR}/models/rife/rife49.pth"
+
+mkdir -p "${COMFYUI_DIR}/custom_nodes/ComfyUI-Frame-Interpolation/ckpts/rife"
+cp -f \
+  "${COMFYUI_DIR}/models/rife/rife49.pth" \
+  "${COMFYUI_DIR}/custom_nodes/ComfyUI-Frame-Interpolation/ckpts/rife/rife49.pth"
+
+# -----------------------------
+# Required file validation
+# -----------------------------
+echo "=== Validating required files ==="
+missing=0
+
+required_files=(
+  "${COMFYUI_DIR}/models/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors"
+  "${COMFYUI_DIR}/models/clip_vision/clip_vision_h.safetensors"
+  "${COMFYUI_DIR}/models/vae/wan_2.1_vae.safetensors"
+  "${COMFYUI_DIR}/models/diffusion_models/wan2.2_t2v_low_noise_14B_fp16.safetensors"
+  "${COMFYUI_DIR}/models/diffusion_models/wan2.2_animate_14B_bf16.safetensors"
+  "${COMFYUI_DIR}/models/loras/i2v_lightx2v_low_noise_model.safetensors"
+  "${COMFYUI_DIR}/models/loras/t2v_lightx2v_low_noise_model.safetensors"
+  "${COMFYUI_DIR}/models/loras/wan2.2_animate_14B_relight_lora_bf16.safetensors"
+  "${COMFYUI_DIR}/models/sam2/sam2.1_hiera_base_plus.safetensors"
+  "${COMFYUI_DIR}/models/upscale_models/1xSkinContrast-SuperUltraCompact.pth"
+  "${COMFYUI_DIR}/models/rife/rife49.pth"
+  "${COMFYUI_DIR}/custom_nodes/ComfyUI-Frame-Interpolation/ckpts/rife/rife49.pth"
+)
+
+for f in "${required_files[@]}"; do
+  if ! check_required_file "$f"; then
+    missing=1
+  fi
+done
+
+if [[ "$missing" -ne 0 ]]; then
+  echo ""
+  echo "❌ Provisioning finished with missing required files."
+  exit 1
 fi
 
 echo ""
-echo "=== Завантаження та перейменування LoRA моделей ==="
-LORAS_DIR="${COMFYUI_DIR}/models/loras"
-mkdir -p "$LORAS_DIR"
-
-# I2V Lightx2v LoRA
-if [[ ! -f "${LORAS_DIR}/i2v_lightx2v_low_noise_model.safetensors" ]]; then
-    echo "→ Завантаження i2v_lightx2v_low_noise_model.safetensors..."
-    wget ${HF_TOKEN:+--header="Authorization: Bearer $HF_TOKEN"} --content-disposition --show-progress -e dotbytes=4M \
-        -O "${LORAS_DIR}/i2v_lightx2v_low_noise_model.safetensors" \
-        "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/Lightx2v/lightx2v_I2V_14B_480p_cfg_step_distill_rank256_bf16.safetensors" \
-        || echo " [!] Помилка завантаження i2v_lightx2v_low_noise_model"
-fi
-
-# T2V Lightx2v LoRA
-if [[ ! -f "${LORAS_DIR}/t2v_lightx2v_low_noise_model.safetensors" ]]; then
-    echo "→ Завантаження t2v_lightx2v_low_noise_model.safetensors..."
-    wget ${HF_TOKEN:+--header="Authorization: Bearer $HF_TOKEN"} --content-disposition --show-progress -e dotbytes=4M \
-        -O "${LORAS_DIR}/t2v_lightx2v_low_noise_model.safetensors" \
-        "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/Lightx2v/lightx2v_T2V_14B_cfg_step_distill_v2_lora_rank256_bf16.safetensors" \
-        || echo " [!] Помилка завантаження t2v_lightx2v_low_noise_model"
-fi
-
-# Relight LoRA
-if [[ ! -f "${LORAS_DIR}/wan2.2_animate_14B_relight_lora_bf16.safetensors" ]]; then
-    echo "→ Завантаження wan2.2_animate_14B_relight_lora_bf16.safetensors..."
-    wget ${HF_TOKEN:+--header="Authorization: Bearer $HF_TOKEN"} --content-disposition --show-progress -e dotbytes=4M \
-        -O "${LORAS_DIR}/wan2.2_animate_14B_relight_lora_bf16.safetensors" \
-        "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/loras/wan2.2_animate_14B_relight_lora_bf16.safetensors" \
-        || echo " [!] Помилка завантаження relight lora"
-fi
-
-# Upscaler
-UPSCALE_DIR="${COMFYUI_DIR}/models/upscale_models"
-mkdir -p "$UPSCALE_DIR"
-if [[ ! -f "${UPSCALE_DIR}/1xSkinContrast-SuperUltraCompact.pth" ]]; then
-    echo "→ Завантаження 1xSkinContrast-SuperUltraCompact.pth..."
-    wget ${HF_TOKEN:+--header="Authorization: Bearer $HF_TOKEN"} --content-disposition --show-progress -e dotbytes=4M \
-        -O "${UPSCALE_DIR}/1xSkinContrast-SuperUltraCompact.pth" \
-        "https://huggingface.co/risunobushi/1xSkinContrast/resolve/main/1xSkinContrast-SuperUltraCompact.pth" \
-        || echo " [!] Помилка завантаження 1xSkinContrast"
-fi
-
+echo "✅ Provisioning completed successfully."
 echo ""
-echo "=== RIFE fix (критично для твоей ошибки) ==="
-# 1) Храним в models/rife
-RIFE_MODELS_DIR="${COMFYUI_DIR}/models/rife"
-# 2) Дублируем туда, где ComfyUI-Frame-Interpolation реально ищет файл
-RIFE_VFI_DIR="${COMFYUI_DIR}/custom_nodes/ComfyUI-Frame-Interpolation/ckpts/rife"
-
-mkdir -p "$RIFE_MODELS_DIR" "$RIFE_VFI_DIR"
-
-if [[ ! -f "${RIFE_MODELS_DIR}/rife49.pth" ]]; then
-    echo "→ Завантаження rife49.pth у models/rife..."
-    wget ${HF_TOKEN:+--header="Authorization: Bearer $HF_TOKEN"} --content-disposition --show-progress -e dotbytes=4M \
-        -O "${RIFE_MODELS_DIR}/rife49.pth" \
-        "https://huggingface.co/MachineDelusions/RIFE/resolve/main/rife49.pth" \
-        || echo " [!] Помилка завантаження rife49.pth"
-fi
-
-if [[ -f "${RIFE_MODELS_DIR}/rife49.pth" ]]; then
-    cp -f "${RIFE_MODELS_DIR}/rife49.pth" "${RIFE_VFI_DIR}/rife49.pth"
-    echo "✓ rife49.pth скопійовано у ${RIFE_VFI_DIR}"
-else
-    echo " [!] rife49.pth не знайдено в ${RIFE_MODELS_DIR}"
-fi
-
-echo ""
-echo "✅ Wan Animate God Mode V3 готовий!"
-echo ""
-echo "ПРИМІТКА: Для повної роботи workflow потрібно вручну додати 3 custom LoRA:"
+echo "Manual private LoRAs still required:"
 echo "  - BreastsLoRA_ByHearmemanAI_HighNoise-000070.safetensors"
 echo "  - Sadie01_LowNoise.safetensors"
 echo "  - Sydney01_LowNoise.safetensors"
-echo "Помістіть їх у: ${COMFYUI_DIR}/models/loras/"
+echo "Place them into: ${COMFYUI_DIR}/models/loras"
 echo ""
-echo "Провізіонінг завершено. ComfyUI запуститься автоматично платформою."
+echo "Done."
