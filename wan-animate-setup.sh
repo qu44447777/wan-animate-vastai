@@ -7,9 +7,6 @@ COMFYUI_DIR="${WORKSPACE}/ComfyUI"
 
 echo "=== Wan Animate God Mode V3 Setup ==="
 
-APT_PACKAGES=()
-PIP_PACKAGES=()
-
 NODES=(
     "https://github.com/kijai/ComfyUI-WanVideoWrapper"
     "https://github.com/kijai/ComfyUI-WanAnimatePreprocess"
@@ -24,30 +21,26 @@ NODES=(
     "https://github.com/Fannovel16/comfyui_controlnet_aux"
     "https://github.com/ltdrdata/ComfyUI-Impact-Pack"
     "https://github.com/Fannovel16/ComfyUI-Frame-Interpolation"
+    "https://github.com/ClownsharkBatwing/RES4LYF"
 )
 
-# Text Encoders (CLIP)
 TEXT_ENCODERS=(
     "https://huggingface.co/f5aiteam/CLIP/resolve/main/umt5_xxl_fp8_e4m3fn_scaled.safetensors"
 )
 
-# CLIP Vision
 CLIP_VISION=(
     "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/clip_vision/clip_vision_h.safetensors"
 )
 
-# VAE
 VAE_MODELS=(
     "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/vae/wan_2.1_vae.safetensors"
 )
 
-# Diffusion Models
 DIFFUSION_MODELS=(
     "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/diffusion_models/wan2.2_t2v_low_noise_14B_fp16.safetensors"
     "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/diffusion_models/wan2.2_animate_14B_bf16.safetensors"
 )
 
-# Detection Models
 DETECTION_MODELS=(
     "https://huggingface.co/Wan-AI/Wan2.2-Animate-14B/resolve/main/process_checkpoint/det/yolov10m.onnx"
     "https://huggingface.co/yzd-v/DWPose/resolve/main/yolox_l.onnx"
@@ -55,33 +48,21 @@ DETECTION_MODELS=(
     "https://huggingface.co/Kijai/vitpose_comfy/resolve/main/onnx/vitpose_h_wholebody_data.bin"
 )
 
-# DWPose (torchscript)
 DWPOSE_MODELS=(
     "https://huggingface.co/yzd-v/DWPose/resolve/main/dw-ll_ucoco_384.onnx"
     "https://huggingface.co/yzd-v/DWPose/resolve/main/dw-ll_ucoco_384_bs5.torchscript.pt"
 )
 
-# SAM2
 SAM2_MODELS=(
     "https://huggingface.co/Kijai/sam2-safetensors/resolve/main/sam2.1_hiera_base_plus.safetensors"
 )
 
-# LoRAs
-LORAS=(
-    "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/loras/wan2.2_i2v_lightx2v_4steps_lora_v1_low_noise.safetensors"
-    "https://huggingface.co/lightx2v/Wan2.2-Lightning/resolve/main/Wan2.2-T2V-A14B-4steps-lora-rank64-Seko-V1.1/low_noise_model.safetensors"
-    "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/loras/wan2.2_animate_14B_relight_lora_bf16.safetensors"
-)
-
-# RIFE
 RIFE_MODELS=(
     "https://huggingface.co/MachineDelusions/RIFE/resolve/main/rife49.pth"
 )
 
-# Upscalers
 UPSCALER_MODELS=(
     "https://huggingface.co/Kim2091/UltraSharp/resolve/main/4x-UltraSharp.pth"
-    "https://huggingface.co/notkenski/upscalers/resolve/main/1xSkinContrast-High-SuperUltraCompact.pth"
 )
 
 function provisioning_get_nodes() {
@@ -147,9 +128,51 @@ provisioning_get_files "${COMFYUI_DIR}/models/diffusion_models" "${DIFFUSION_MOD
 provisioning_get_files "${COMFYUI_DIR}/models/detection" "${DETECTION_MODELS[@]}"
 provisioning_get_files "${COMFYUI_DIR}/models/dwpose" "${DWPOSE_MODELS[@]}"
 provisioning_get_files "${COMFYUI_DIR}/models/sam2" "${SAM2_MODELS[@]}"
-provisioning_get_files "${COMFYUI_DIR}/models/loras" "${LORAS[@]}"
 provisioning_get_files "${COMFYUI_DIR}/models/rife" "${RIFE_MODELS[@]}"
 provisioning_get_files "${COMFYUI_DIR}/models/upscale_models" "${UPSCALER_MODELS[@]}"
+
+echo ""
+echo "=== Завантаження та перейменування LoRA моделей ==="
+
+LORAS_DIR="${COMFYUI_DIR}/models/loras"
+mkdir -p "$LORAS_DIR"
+
+# I2V Lightx2v LoRA
+if [[ ! -f "${LORAS_DIR}/i2v_lightx2v_low_noise_model.safetensors" ]]; then
+    echo "→ Завантаження i2v_lightx2v_low_noise_model.safetensors..."
+    wget ${HF_TOKEN:+--header="Authorization: Bearer $HF_TOKEN"} --content-disposition --show-progress -e dotbytes=4M \
+        -O "${LORAS_DIR}/i2v_lightx2v_low_noise_model.safetensors" \
+        "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/Lightx2v/lightx2v_I2V_14B_480p_cfg_step_distill_rank256_bf16.safetensors" \
+        || echo " [!] Помилка завантаження i2v_lightx2v_low_noise_model"
+fi
+
+# T2V Lightx2v LoRA
+if [[ ! -f "${LORAS_DIR}/t2v_lightx2v_low_noise_model.safetensors" ]]; then
+    echo "→ Завантаження t2v_lightx2v_low_noise_model.safetensors..."
+    wget ${HF_TOKEN:+--header="Authorization: Bearer $HF_TOKEN"} --content-disposition --show-progress -e dotbytes=4M \
+        -O "${LORAS_DIR}/t2v_lightx2v_low_noise_model.safetensors" \
+        "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/Lightx2v/lightx2v_T2V_14B_cfg_step_distill_v2_lora_rank256_bf16.safetensors" \
+        || echo " [!] Помилка завантаження t2v_lightx2v_low_noise_model"
+fi
+
+# Relight LoRA
+if [[ ! -f "${LORAS_DIR}/wan2.2_animate_14B_relight_lora_bf16.safetensors" ]]; then
+    echo "→ Завантаження wan2.2_animate_14B_relight_lora_bf16.safetensors..."
+    wget ${HF_TOKEN:+--header="Authorization: Bearer $HF_TOKEN"} --content-disposition --show-progress -e dotbytes=4M \
+        -P "${LORAS_DIR}" \
+        "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/Relight/wan2.2_animate_14B_relight_lora_bf16_rank256.safetensors" \
+        || echo " [!] Помилка завантаження relight lora"
+fi
+
+# Upscaler
+UPSCALE_DIR="${COMFYUI_DIR}/models/upscale_models"
+if [[ ! -f "${UPSCALE_DIR}/1xSkinContrast-SuperUltraCompact.pth" ]]; then
+    echo "→ Завантаження 1xSkinContrast-SuperUltraCompact.pth..."
+    wget ${HF_TOKEN:+--header="Authorization: Bearer $HF_TOKEN"} --content-disposition --show-progress -e dotbytes=4M \
+        -O "${UPSCALE_DIR}/1xSkinContrast-SuperUltraCompact.pth" \
+        "https://huggingface.co/risunobushi/1xSkinContrast/resolve/main/1xSkinContrast-SuperUltraCompact.pth" \
+        || echo " [!] Помилка завантаження 1xSkinContrast"
+fi
 
 echo ""
 echo "✅ Wan Animate God Mode V3 готовий!"
