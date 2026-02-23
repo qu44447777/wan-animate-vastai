@@ -9,6 +9,7 @@ echo "=== Wan Animate God Mode V3 Setup ==="
 # Custom nodes для вашого workflow
 NODES=(
     "https://github.com/kijai/ComfyUI-WanVideoWrapper"
+    "https://github.com/kijai/ComfyUI-WanAnimatePreprocess"
     "https://github.com/chflame163/ComfyUI_LayerStyle"
     "https://github.com/yolain/ComfyUI-Easy-Use"
     "https://github.com/kijai/ComfyUI-KJNodes"
@@ -16,8 +17,10 @@ NODES=(
     "https://github.com/kijai/ComfyUI-segment-anything-2"
     "https://github.com/cubiq/ComfyUI_essentials"
     "https://github.com/fq393/ComfyUI-ZMG-Nodes"
-    "https://github.com/kijai/ComfyUI-WanAnimatePreprocess"
     "https://github.com/rgthree/rgthree-comfy"
+    "https://github.com/Fannovel16/comfyui_controlnet_aux"
+    "https://github.com/ltdrdata/ComfyUI-Impact-Pack"
+    "https://github.com/kijai/ComfyUI-RIFE"
 )
 
 # CLIP моделі
@@ -41,11 +44,12 @@ DIFFUSION_MODELS=(
     "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/Wan22Animate/wan2.2_animate_14B_bf16.safetensors"
 )
 
-# Detection моделі (ONNX)
+# Detection моделі (ONNX) - для WanAnimatePreprocess
 DETECTION_MODELS=(
-    "https://huggingface.co/Kijai/vitpose_comfy/resolve/main/onnx/vitpose_h_wholebody_model.onnx"
     "https://huggingface.co/Wan-AI/Wan2.2-Animate-14B/resolve/main/process_checkpoint/det/yolov10m.onnx"
     "https://huggingface.co/Wan-AI/Wan2.2-Animate-14B/resolve/main/process_checkpoint/det/yolox_l.onnx"
+    "https://huggingface.co/Kijai/vitpose_comfy/resolve/main/onnx/vitpose_h_wholebody_model.onnx"
+    "https://huggingface.co/Kijai/vitpose_comfy/resolve/main/onnx/vitpose_h_wholebody_data.bin"
 )
 
 # SAM2 моделі
