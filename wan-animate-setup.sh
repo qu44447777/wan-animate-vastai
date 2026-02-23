@@ -6,7 +6,12 @@ COMFYUI_DIR="${WORKSPACE}/ComfyUI"
 
 echo "=== Wan Animate God Mode V3 Setup ==="
 
-# Custom nodes для вашого workflow
+# Глобальні залежності
+echo ""
+echo "=== Встановлення глобальних залежностей ==="
+pip install opencv-python opencv-contrib-python accelerate imageio-ffmpeg
+
+# Custom nodes
 NODES=(
     "https://github.com/kijai/ComfyUI-WanVideoWrapper"
     "https://github.com/kijai/ComfyUI-WanAnimatePreprocess"
@@ -20,11 +25,10 @@ NODES=(
     "https://github.com/rgthree/rgthree-comfy"
     "https://github.com/Fannovel16/comfyui_controlnet_aux"
     "https://github.com/ltdrdata/ComfyUI-Impact-Pack"
-    "https://github.com/kijai/ComfyUI-RIFE"
 )
 
-# CLIP моделі
-CLIP_MODELS=(
+# Text Encoders (CLIP для Wan)
+TEXT_ENCODERS=(
     "https://huggingface.co/f5aiteam/CLIP/resolve/main/umt5_xxl_fp8_e4m3fn_scaled.safetensors"
 )
 
@@ -38,13 +42,13 @@ VAE_MODELS=(
     "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/vae/wan_2.1_vae.safetensors"
 )
 
-# Diffusion моделі (UNET)
+# Diffusion моделі (Wan UNET моделі)
 DIFFUSION_MODELS=(
     "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/diffusion_models/wan2.2_t2v_low_noise_14B_fp16.safetensors"
     "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/Wan22Animate/wan2.2_animate_14B_bf16.safetensors"
 )
 
-# Detection моделі (ONNX) - для WanAnimatePreprocess
+# Detection моделі (ONNX)
 DETECTION_MODELS=(
     "https://huggingface.co/Wan-AI/Wan2.2-Animate-14B/resolve/main/process_checkpoint/det/yolov10m.onnx"
     "https://huggingface.co/Wan-AI/Wan2.2-Animate-14B/resolve/main/process_checkpoint/det/yolox_l.onnx"
@@ -64,14 +68,15 @@ LORAS=(
     "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/Relight/wan2.2_animate_14B_relight_lora_bf16.safetensors"
 )
 
-# RIFE моделі для frame interpolation
+# RIFE моделі
 RIFE_MODELS=(
-    "https://github.com/hzwer/Practical-RIFE/releases/download/v4.6/flownet-v4.6.pkl"
+    "https://github.com/hzwer/Practical-RIFE/releases/download/v4.9/rife49.pth"
 )
 
 # Upscaler моделі
 UPSCALER_MODELS=(
     "https://huggingface.co/Kim2091/UltraSharp/resolve/main/4x-UltraSharp.pth"
+    "https://huggingface.co/Kijai/upscaler-models/resolve/main/1xSkinContrast-SuperUltraCompact.pth"
 )
 
 # DWPose моделі
@@ -88,13 +93,12 @@ provisioning_get_nodes() {
             (cd "$dir" && git pull)
         else
             echo "Клонування: $repo"
-            git clone "${repo}" "$dir"
+            git clone "${repo}" "$dir" || echo "⚠ Помилка клонування: $repo"
         fi
         
-        # Встановлення залежностей якщо є requirements.txt
         if [[ -f "${dir}/requirements.txt" ]]; then
             echo "Встановлення залежностей для $(basename "$dir")"
-            pip install -r "${dir}/requirements.txt"
+            pip install -r "${dir}/requirements.txt" || echo "⚠ Помилка встановлення залежностей"
         fi
     done
 }
@@ -138,7 +142,7 @@ provisioning_get_nodes
 echo ""
 echo "=== Завантаження моделей ==="
 
-provisioning_get_files "${COMFYUI_DIR}/models/clip" "${CLIP_MODELS[@]}"
+provisioning_get_files "${COMFYUI_DIR}/models/text_encoders" "${TEXT_ENCODERS[@]}"
 provisioning_get_files "${COMFYUI_DIR}/models/clip_vision" "${CLIP_VISION[@]}"
 provisioning_get_files "${COMFYUI_DIR}/models/vae" "${VAE_MODELS[@]}"
 provisioning_get_files "${COMFYUI_DIR}/models/diffusion_models" "${DIFFUSION_MODELS[@]}"
