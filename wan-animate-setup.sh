@@ -44,15 +44,21 @@ VAE_MODELS=(
 # Diffusion Models
 DIFFUSION_MODELS=(
     "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/diffusion_models/wan2.2_t2v_low_noise_14B_fp16.safetensors"
-    "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/Wan22Animate/wan2.2_animate_14B_bf16.safetensors"
+    "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/diffusion_models/wan2.2_animate_14B_bf16.safetensors"
 )
 
 # Detection Models
 DETECTION_MODELS=(
     "https://huggingface.co/Wan-AI/Wan2.2-Animate-14B/resolve/main/process_checkpoint/det/yolov10m.onnx"
-    "https://huggingface.co/Wan-AI/Wan2.2-Animate-14B/resolve/main/process_checkpoint/det/yolox_l.onnx"
+    "https://huggingface.co/yzd-v/DWPose/resolve/main/yolox_l.onnx"
     "https://huggingface.co/Kijai/vitpose_comfy/resolve/main/onnx/vitpose_h_wholebody_model.onnx"
     "https://huggingface.co/Kijai/vitpose_comfy/resolve/main/onnx/vitpose_h_wholebody_data.bin"
+)
+
+# DWPose (torchscript)
+DWPOSE_MODELS=(
+    "https://huggingface.co/yzd-v/DWPose/resolve/main/dw-ll_ucoco_384.onnx"
+    "https://huggingface.co/yzd-v/DWPose/resolve/main/dw-ll_ucoco_384_bs5.torchscript.pt"
 )
 
 # SAM2
@@ -63,24 +69,19 @@ SAM2_MODELS=(
 # LoRAs
 LORAS=(
     "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/loras/wan2.2_i2v_lightx2v_4steps_lora_v1_low_noise.safetensors"
-    "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/loras/wan2.2_t2v_lightx2v_4steps_lora_v1_low_noise.safetensors"
-    "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/Relight/wan2.2_animate_14B_relight_lora_bf16.safetensors"
+    "https://huggingface.co/lightx2v/Wan2.2-Lightning/resolve/main/Wan2.2-T2V-A14B-4steps-lora-rank64-Seko-V1.1/low_noise_model.safetensors"
+    "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/loras/wan2.2_animate_14B_relight_lora_bf16.safetensors"
 )
 
 # RIFE
 RIFE_MODELS=(
-    "https://github.com/hzwer/Practical-RIFE/releases/download/v4.9/rife49.pth"
+    "https://huggingface.co/MachineDelusions/RIFE/resolve/main/rife49.pth"
 )
 
 # Upscalers
 UPSCALER_MODELS=(
     "https://huggingface.co/Kim2091/UltraSharp/resolve/main/4x-UltraSharp.pth"
-    "https://huggingface.co/Kijai/upscaler-models/resolve/main/1xSkinContrast-SuperUltraCompact.pth"
-)
-
-# DWPose
-DWPOSE_MODELS=(
-    "https://huggingface.co/yzd-v/DWPose/resolve/main/dw-ll_ucoco_384.onnx"
+    "https://huggingface.co/notkenski/upscalers/resolve/main/1xSkinContrast-High-SuperUltraCompact.pth"
 )
 
 function provisioning_get_nodes() {
@@ -144,11 +145,11 @@ provisioning_get_files "${COMFYUI_DIR}/models/clip_vision" "${CLIP_VISION[@]}"
 provisioning_get_files "${COMFYUI_DIR}/models/vae" "${VAE_MODELS[@]}"
 provisioning_get_files "${COMFYUI_DIR}/models/diffusion_models" "${DIFFUSION_MODELS[@]}"
 provisioning_get_files "${COMFYUI_DIR}/models/detection" "${DETECTION_MODELS[@]}"
+provisioning_get_files "${COMFYUI_DIR}/models/dwpose" "${DWPOSE_MODELS[@]}"
 provisioning_get_files "${COMFYUI_DIR}/models/sam2" "${SAM2_MODELS[@]}"
 provisioning_get_files "${COMFYUI_DIR}/models/loras" "${LORAS[@]}"
 provisioning_get_files "${COMFYUI_DIR}/models/rife" "${RIFE_MODELS[@]}"
 provisioning_get_files "${COMFYUI_DIR}/models/upscale_models" "${UPSCALER_MODELS[@]}"
-provisioning_get_files "${COMFYUI_DIR}/models/dwpose" "${DWPOSE_MODELS[@]}"
 
 echo ""
 echo "✅ Wan Animate God Mode V3 готовий!"
