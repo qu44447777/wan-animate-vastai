@@ -57,10 +57,6 @@ SAM2_MODELS=(
     "https://huggingface.co/Kijai/sam2-safetensors/resolve/main/sam2.1_hiera_base_plus.safetensors"
 )
 
-RIFE_MODELS=(
-    "https://huggingface.co/MachineDelusions/RIFE/resolve/main/rife49.pth"
-)
-
 UPSCALER_MODELS=(
     "https://huggingface.co/Kim2091/UltraSharp/resolve/main/4x-UltraSharp.pth"
 )
@@ -128,8 +124,21 @@ provisioning_get_files "${COMFYUI_DIR}/models/diffusion_models" "${DIFFUSION_MOD
 provisioning_get_files "${COMFYUI_DIR}/models/detection" "${DETECTION_MODELS[@]}"
 provisioning_get_files "${COMFYUI_DIR}/models/dwpose" "${DWPOSE_MODELS[@]}"
 provisioning_get_files "${COMFYUI_DIR}/models/sam2" "${SAM2_MODELS[@]}"
-provisioning_get_files "${COMFYUI_DIR}/models/rife" "${RIFE_MODELS[@]}"
 provisioning_get_files "${COMFYUI_DIR}/models/upscale_models" "${UPSCALER_MODELS[@]}"
+
+echo ""
+echo "=== Завантаження RIFE моделі ==="
+
+RIFE_DIR="${COMFYUI_DIR}/models/rife"
+mkdir -p "$RIFE_DIR"
+
+if [[ ! -f "${RIFE_DIR}/rife49.pth" ]]; then
+    echo "→ Завантаження rife49.pth..."
+    wget ${HF_TOKEN:+--header="Authorization: Bearer $HF_TOKEN"} --content-disposition --show-progress -e dotbytes=4M \
+        -O "${RIFE_DIR}/rife49.pth" \
+        "https://huggingface.co/MachineDelusions/RIFE/resolve/main/rife49.pth" \
+        || echo " [!] Помилка завантаження rife49.pth"
+fi
 
 echo ""
 echo "=== Завантаження та перейменування LoRA моделей ==="
@@ -155,7 +164,7 @@ if [[ ! -f "${LORAS_DIR}/t2v_lightx2v_low_noise_model.safetensors" ]]; then
         || echo " [!] Помилка завантаження t2v_lightx2v_low_noise_model"
 fi
 
-# Relight LoRA - ВИПРАВЛЕНЕ ПОСИЛАННЯ
+# Relight LoRA
 if [[ ! -f "${LORAS_DIR}/wan2.2_animate_14B_relight_lora_bf16.safetensors" ]]; then
     echo "→ Завантаження wan2.2_animate_14B_relight_lora_bf16.safetensors..."
     wget ${HF_TOKEN:+--header="Authorization: Bearer $HF_TOKEN"} --content-disposition --show-progress -e dotbytes=4M \
@@ -176,4 +185,11 @@ fi
 
 echo ""
 echo "✅ Wan Animate God Mode V3 готовий!"
+echo ""
+echo "ПРИМІТКА: Для повної роботи workflow потрібно вручну додати 3 custom LoRA:"
+echo "  - BreastsLoRA_ByHearmemanAI_HighNoise-000070.safetensors"
+echo "  - Sadie01_LowNoise.safetensors"
+echo "  - Sydney01_LowNoise.safetensors"
+echo "Помістіть їх у: ${COMFYUI_DIR}/models/loras/"
+echo ""
 echo "Провізіонінг завершено. ComfyUI запуститься автоматично."
