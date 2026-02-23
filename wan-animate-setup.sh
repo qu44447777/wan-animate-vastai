@@ -155,12 +155,12 @@ if [[ ! -f "${LORAS_DIR}/t2v_lightx2v_low_noise_model.safetensors" ]]; then
         || echo " [!] Помилка завантаження t2v_lightx2v_low_noise_model"
 fi
 
-# Relight LoRA
+# Relight LoRA - ВИПРАВЛЕНЕ ПОСИЛАННЯ
 if [[ ! -f "${LORAS_DIR}/wan2.2_animate_14B_relight_lora_bf16.safetensors" ]]; then
     echo "→ Завантаження wan2.2_animate_14B_relight_lora_bf16.safetensors..."
     wget ${HF_TOKEN:+--header="Authorization: Bearer $HF_TOKEN"} --content-disposition --show-progress -e dotbytes=4M \
         -P "${LORAS_DIR}" \
-        "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/Relight/wan2.2_animate_14B_relight_lora_bf16_rank256.safetensors" \
+        "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/loras/wan2.2_animate_14B_relight_lora_bf16.safetensors" \
         || echo " [!] Помилка завантаження relight lora"
 fi
 
