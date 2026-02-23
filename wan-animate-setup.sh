@@ -23,6 +23,7 @@ NODES=(
     "https://github.com/rgthree/rgthree-comfy"
     "https://github.com/Fannovel16/comfyui_controlnet_aux"
     "https://github.com/ltdrdata/ComfyUI-Impact-Pack"
+    "https://github.com/Fannovel16/ComfyUI-Frame-Interpolation"
 )
 
 # Text Encoders (CLIP)
